@@ -40,7 +40,7 @@ async function init() {
             {
                 serverUrl      : config.serverUrl, // Testnet
                 pollInterval   : 1000,
-                memoryDb       : true,
+                memoryDb       : false,
                 minConfirmation: 1, // ETH block confirmations
                 flavour        : SdkFlavour.PLAIN
             }
@@ -63,14 +63,44 @@ async function init() {
         console.error(e);
     }
 
+    // Check to see if the user already exists in the database
+    let users = null;
+    let user  = null;
+
+    console.log('Checking to see if user exists in local database');
+
     try {
-        await aztecSdk.addUser(accountKey.privateKey);
+        users = await aztecSdk.getUsers();
     }
     catch (e) {
         console.error(e);
     }
 
-    user = await aztecSdk.getUser(accountKey.publicKey);
+    const userExists = users &&
+        users.length > 0 &&
+        users.find((grumpkinAddress) => grumpkinAddress.toString() == accountKey.publicKey.toString());
+
+    if (!userExists) {
+        console.log(`User doesn't exist, adding`);
+
+        try {
+            user = await aztecSdk.addUser(accountKey.privateKey);
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
+
+    if (!user) {
+        console.log(`User exists, retrieving`);
+
+        try {
+            user = await aztecSdk.getUser(accountKey.publicKey);
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
 
     console.log('Checking if user is registered');
 
@@ -80,6 +110,8 @@ async function init() {
         console.error(`User with Ethereum address ${ethereumAddress} is not registered! Please run createAccount()`);
         return false;
     }
+
+    console.log('User is registered')
 
     const { nextRollupId } = (await aztecSdk.getRemoteStatus()).blockchainStatus;
 
@@ -158,7 +190,7 @@ async function createAccount() {
 async function deposit() {
     if (!await init()) return process.exit(1);
 
-    const depositAmount = ethers.utils.parseEther('0.1');
+    const depositAmount = ethers.utils.parseEther('0.01');
 
     console.log(`Depositing ${ethers.utils.formatEther(depositAmount)} ETH`);
     
